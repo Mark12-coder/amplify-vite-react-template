@@ -27,6 +27,7 @@ function App() {
     allDay: false,
     reminderSet: false,
     reminderTime: "",
+    isUnplanned: false,
   });
   const [expandedTodo, setExpandedTodo] = useState<string | null>(null);
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
@@ -85,24 +86,42 @@ function App() {
         id: editingTodoId,
         title: popupData.title.trim(),
         description: popupData.description.trim() || undefined,
-        date: selectedDay,
-        fromTime: popupData.allDay ? undefined : popupData.fromTime || undefined,
-        toTime: popupData.allDay ? undefined : popupData.toTime || undefined,
+        date: popupData.isUnplanned ? null : selectedDay,
+        fromTime:
+          popupData.allDay || popupData.isUnplanned
+            ? undefined
+            : popupData.fromTime || undefined,
+        toTime:
+          popupData.allDay || popupData.isUnplanned
+            ? undefined
+            : popupData.toTime || undefined,
         allDay: popupData.allDay,
-        reminderSet: popupData.reminderSet,
-        reminderTime: popupData.reminderSet ? popupData.reminderTime : undefined,
+        reminderSet: popupData.reminderSet && !popupData.isUnplanned,
+        reminderTime:
+          popupData.reminderSet && !popupData.isUnplanned
+            ? popupData.reminderTime
+            : undefined,
       });
     } else {
       // Create new todo
       await client.models.Todo.create({
         title: popupData.title.trim(),
         description: popupData.description.trim() || undefined,
-        date: selectedDay,
-        fromTime: popupData.allDay ? undefined : popupData.fromTime || undefined,
-        toTime: popupData.allDay ? undefined : popupData.toTime || undefined,
+        date: popupData.isUnplanned ? null : selectedDay,
+        fromTime:
+          popupData.allDay || popupData.isUnplanned
+            ? undefined
+            : popupData.fromTime || undefined,
+        toTime:
+          popupData.allDay || popupData.isUnplanned
+            ? undefined
+            : popupData.toTime || undefined,
         allDay: popupData.allDay,
-        reminderSet: popupData.reminderSet,
-        reminderTime: popupData.reminderSet ? popupData.reminderTime : undefined,
+        reminderSet: popupData.reminderSet && !popupData.isUnplanned,
+        reminderTime:
+          popupData.reminderSet && !popupData.isUnplanned
+            ? popupData.reminderTime
+            : undefined,
       });
     }
     setShowPopup(false);
@@ -114,6 +133,7 @@ function App() {
       allDay: false,
       reminderSet: false,
       reminderTime: "",
+      isUnplanned: false,
     });
     setEditingTodoId(null);
   }
@@ -122,16 +142,11 @@ function App() {
     await client.models.Todo.delete({ id });
   }
 
-  async function addUnplannedTodo() {
-    const title = window.prompt("Enter unplanned todo title:");
-    if (!title || !title.trim()) return;
-    await client.models.Todo.create({
-      title: title.trim(),
-      date: null,
-    });
-  }
-
   function editTodo(todo: Schema["Todo"]["type"]) {
+    if (todo.date === null) {
+      // Unplanned tasks cannot be edited
+      return;
+    }
     setPopupData({
       title: todo.title || "",
       description: todo.description || "",
@@ -140,8 +155,24 @@ function App() {
       allDay: todo.allDay || false,
       reminderSet: todo.reminderSet || false,
       reminderTime: todo.reminderTime || "",
+      isUnplanned: false,
     });
     setEditingTodoId(todo.id);
+    setShowPopup(true);
+  }
+
+  function addUnplannedTodo() {
+    setPopupData({
+      title: "",
+      description: "",
+      fromTime: "",
+      toTime: "",
+      allDay: false,
+      reminderSet: false,
+      reminderTime: "",
+      isUnplanned: true,
+    });
+    setEditingTodoId(null);
     setShowPopup(true);
   }
 
@@ -259,6 +290,7 @@ function App() {
               allDay: false,
               reminderSet: false,
               reminderTime: "",
+              isUnplanned: false,
             });
           }}
           style={{
@@ -382,7 +414,10 @@ function App() {
               )}
             </div>
           ))}
+          <button onClick={signOut}>Sign Out</button>
         </div>
+
+        
 
         {showPopup && (
           <div
@@ -410,7 +445,7 @@ function App() {
                 animation: "slideDown 0.3s ease forwards",
               }}
             >
-              <h3>{editingTodoId ? "Edit" : "Add"} Todo for {selectedDay}</h3>
+              <h3>{editingTodoId ? "Edit" : "Add"} {popupData.isUnplanned ? "Unplanned " : ""}Todo {popupData.isUnplanned ? "" : `for ${selectedDay}`}</h3>
               <input
                 placeholder="Title"
                 value={popupData.title}
@@ -427,58 +462,62 @@ function App() {
                 }
                 style={{ width: "100%", marginBottom: "8px", padding: "6px" }}
               />
-              <label style={{ display: "block", marginBottom: "8px" }}>
-                <input
-                  type="checkbox"
-                  checked={popupData.allDay}
-                  onChange={(e) =>
-                    setPopupData({ ...popupData, allDay: e.target.checked })
-                  }
-                />{" "}
-                All Day
-              </label>
-              {!popupData.allDay && (
+              {/* For unplanned tasks, no allDay or time/reminder controls */}
+              {!popupData.isUnplanned && (
                 <>
-                  <input
-                    type="time"
-                    value={popupData.fromTime}
-                    onChange={(e) =>
-                      setPopupData({ ...popupData, fromTime: e.target.value })
-                    }
-                    style={{ width: "100%", margin: "5px 0", padding: "6px" }}
-                  />
-                  <input
-                    type="time"
-                    value={popupData.toTime}
-                    onChange={(e) =>
-                      setPopupData({ ...popupData, toTime: e.target.value })
-                    }
-                    style={{ width: "100%", marginBottom: "8px", padding: "6px" }}
-                  />
-                </>
-              )}
+                  <label style={{ display: "block", marginBottom: "8px" }}>
+                    <input
+                      type="checkbox"
+                      checked={popupData.allDay}
+                      onChange={(e) =>
+                        setPopupData({ ...popupData, allDay: e.target.checked })
+                      }
+                    />{" "}
+                    All Day
+                  </label>
+                  {!popupData.allDay && (
+                    <>
+                      <input
+                        type="time"
+                        value={popupData.fromTime}
+                        onChange={(e) =>
+                          setPopupData({ ...popupData, fromTime: e.target.value })
+                        }
+                        style={{ width: "100%", margin: "5px 0", padding: "6px" }}
+                      />
+                      <input
+                        type="time"
+                        value={popupData.toTime}
+                        onChange={(e) =>
+                          setPopupData({ ...popupData, toTime: e.target.value })
+                        }
+                        style={{ width: "100%", marginBottom: "8px", padding: "6px" }}
+                      />
+                    </>
+                  )}
 
-              {/* Reminder Section */}
-              <label style={{ display: "block", marginBottom: "8px" }}>
-                <input
-                  type="checkbox"
-                  checked={popupData.reminderSet}
-                  onChange={(e) =>
-                    setPopupData({ ...popupData, reminderSet: e.target.checked })
-                  }
-                  disabled={popupData.allDay}
-                />{" "}
-                Set Reminder
-              </label>
-              {popupData.reminderSet && !popupData.allDay && (
-                <input
-                  type="time"
-                  value={popupData.reminderTime}
-                  onChange={(e) =>
-                    setPopupData({ ...popupData, reminderTime: e.target.value })
-                  }
-                  style={{ width: "100%", marginBottom: "8px", padding: "6px" }}
-                />
+                  {/* Reminder Section */}
+                  <label style={{ display: "block", marginBottom: "8px" }}>
+                    <input
+                      type="checkbox"
+                      checked={popupData.reminderSet}
+                      onChange={(e) =>
+                        setPopupData({ ...popupData, reminderSet: e.target.checked })
+                      }
+                    />{" "}
+                    Set Reminder
+                  </label>
+                  {popupData.reminderSet && !popupData.allDay && (
+                    <input
+                      type="time"
+                      value={popupData.reminderTime}
+                      onChange={(e) =>
+                        setPopupData({ ...popupData, reminderTime: e.target.value })
+                      }
+                      style={{ width: "100%", marginBottom: "8px", padding: "6px" }}
+                    />
+                  )}
+                </>
               )}
 
               <div style={{ marginTop: "10px", textAlign: "right" }}>
@@ -499,6 +538,12 @@ function App() {
                   onMouseLeave={(e) =>
                     (e.currentTarget.style.backgroundColor = "#4f46e5")
                   }
+                  disabled={popupData.isUnplanned && editingTodoId !== null}
+                  title={
+                    popupData.isUnplanned && editingTodoId !== null
+                      ? "Cannot edit unplanned task"
+                      : undefined
+                  }
                 >
                   Save
                 </button>
@@ -506,28 +551,20 @@ function App() {
                   onClick={() => {
                     setShowPopup(false);
                     setEditingTodoId(null);
-                    setPopupData({
-                      title: "",
-                      description: "",
-                      fromTime: "",
-                      toTime: "",
-                      allDay: false,
-                      reminderSet: false,
-                      reminderTime: "",
-                    });
                   }}
                   style={{
                     padding: "8px 12px",
+                    backgroundColor: "#ef4444",
+                    color: "white",
+                    border: "none",
                     borderRadius: "6px",
                     cursor: "pointer",
-                    border: "1px solid #ccc",
-                    background: "white",
                   }}
                   onMouseEnter={(e) =>
-                    (e.currentTarget.style.backgroundColor = "#f0f0f0")
+                    (e.currentTarget.style.backgroundColor = "#b91c1c")
                   }
                   onMouseLeave={(e) =>
-                    (e.currentTarget.style.backgroundColor = "white")
+                    (e.currentTarget.style.backgroundColor = "#ef4444")
                   }
                 >
                   Cancel
@@ -536,25 +573,6 @@ function App() {
             </div>
           </div>
         )}
-
-        <div style={{ marginTop: "20px" }}>
-          <button
-            onClick={signOut}
-            style={{
-              padding: "8px 12px",
-              backgroundColor: "#ef4444",
-              color: "white",
-              border: "none",
-              borderRadius: "6px",
-              cursor: "pointer",
-              transition: "background-color 0.3s ease",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#b91c1c")}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#ef4444")}
-          >
-            Sign Out
-          </button>
-        </div>
       </main>
 
       <aside
@@ -631,22 +649,7 @@ function App() {
                 >
                   {expandedTodo === todo.id ? "Hide Details" : "View More"}
                 </button>
-                <button
-                  onClick={() => editTodo(todo)}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: "#0284c7",
-                    cursor: "pointer",
-                    fontWeight: "600",
-                    marginRight: "10px",
-                  }}
-                  title="Edit"
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "#0369a1")}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = "#0284c7")}
-                >
-                  Edit
-                </button>
+                {/* No Edit button for unplanned tasks */}
                 <button
                   style={{
                     background: "transparent",
@@ -674,11 +677,6 @@ function App() {
                   <strong>Description:</strong>{" "}
                   {todo.description || "No description"}
                 </p>
-                {todo.reminderSet && (
-                  <p>
-                    <strong>Reminder set for:</strong> {todo.reminderTime}
-                  </p>
-                )}
               </div>
             )}
           </div>
