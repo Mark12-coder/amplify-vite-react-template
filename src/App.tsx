@@ -317,10 +317,6 @@ function App() {
 
           {/* Days */}
           {calendarDays.map((day, i) => {
-            const isToday =
-              day === today.getDate() &&
-              calendarMonth === today.getMonth() + 1 &&
-              calendarYear === today.getFullYear();
             const dateStr = day
               ? formatDateLocal(calendarYear, calendarMonth, day)
               : "";
@@ -340,7 +336,7 @@ function App() {
                     : "white",
                   color: dayInPast ? "#aaa" : "black",
                   padding: 6,
-                  cursor: dayInPast || !day ? "default" : "pointer",
+                  cursor: dayInPast || !day ? "prohibited" : "pointer",
                   height: 50,
                   display: "flex",
                   flexDirection: "column",
