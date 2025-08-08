@@ -213,7 +213,7 @@ function App() {
   function openEditUnplannedPopup(todo: Schema["Todo"]["type"]) {
     setUnplannedEditingTodo(todo);
     setUnplannedPopupData({
-      title: todo.title,
+      title: todo.title as string,
       description: todo.description || "",
       date: todo.date || "",
     });
@@ -417,7 +417,7 @@ function App() {
                           setExpandedTodo(todo.id);
                           setEditingTodo(null);
                           setEditFields({
-                            title: todo.title,
+                            title: todo.title as string,
                             description: todo.description || "",
                             fromTime: todo.fromTime || "",
                             toTime: todo.toTime || "",
@@ -445,7 +445,7 @@ function App() {
                         onClick={() => {
                           setEditingTodo(todo.id);
                           setEditFields({
-                            title: todo.title,
+                            title: todo.title as string,
                             description: todo.description || "",
                             fromTime: todo.fromTime || "",
                             toTime: todo.toTime || "",
