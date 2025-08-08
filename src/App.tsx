@@ -25,8 +25,11 @@ function App() {
     fromTime: "",
     toTime: "",
     allDay: false,
+    reminderSet: false,
+    reminderTime: "",
   });
   const [expandedTodo, setExpandedTodo] = useState<string | null>(null);
+  const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
 
   const { signOut } = useAuthenticator();
 
@@ -71,21 +74,48 @@ function App() {
     setCurrentYear((y) => y + 1);
   }
 
-  async function createTodo() {
+  async function saveTodo() {
     if (!popupData.title.trim()) {
       alert("Title is required");
       return;
     }
-    await client.models.Todo.create({
-      title: popupData.title.trim(),
-      description: popupData.description.trim() || undefined,
-      date: selectedDay,
-      fromTime: popupData.allDay ? undefined : popupData.fromTime || undefined,
-      toTime: popupData.allDay ? undefined : popupData.toTime || undefined,
-      allDay: popupData.allDay,
-    });
+    if (editingTodoId) {
+      // Update existing todo
+      await client.models.Todo.update({
+        id: editingTodoId,
+        title: popupData.title.trim(),
+        description: popupData.description.trim() || undefined,
+        date: selectedDay,
+        fromTime: popupData.allDay ? undefined : popupData.fromTime || undefined,
+        toTime: popupData.allDay ? undefined : popupData.toTime || undefined,
+        allDay: popupData.allDay,
+        reminderSet: popupData.reminderSet,
+        reminderTime: popupData.reminderSet ? popupData.reminderTime : undefined,
+      });
+    } else {
+      // Create new todo
+      await client.models.Todo.create({
+        title: popupData.title.trim(),
+        description: popupData.description.trim() || undefined,
+        date: selectedDay,
+        fromTime: popupData.allDay ? undefined : popupData.fromTime || undefined,
+        toTime: popupData.allDay ? undefined : popupData.toTime || undefined,
+        allDay: popupData.allDay,
+        reminderSet: popupData.reminderSet,
+        reminderTime: popupData.reminderSet ? popupData.reminderTime : undefined,
+      });
+    }
     setShowPopup(false);
-    setPopupData({ title: "", description: "", fromTime: "", toTime: "", allDay: false });
+    setPopupData({
+      title: "",
+      description: "",
+      fromTime: "",
+      toTime: "",
+      allDay: false,
+      reminderSet: false,
+      reminderTime: "",
+    });
+    setEditingTodoId(null);
   }
 
   async function deleteTodo(id: string) {
@@ -99,6 +129,20 @@ function App() {
       title: title.trim(),
       date: null,
     });
+  }
+
+  function editTodo(todo: Schema["Todo"]["type"]) {
+    setPopupData({
+      title: todo.title || "",
+      description: todo.description || "",
+      fromTime: todo.fromTime || "",
+      toTime: todo.toTime || "",
+      allDay: todo.allDay || false,
+      reminderSet: todo.reminderSet || false,
+      reminderTime: todo.reminderTime || "",
+    });
+    setEditingTodoId(todo.id);
+    setShowPopup(true);
   }
 
   const firstDayOfMonth = new Date(currentYear, currentMonth - 1, 1).getDay();
@@ -204,7 +248,19 @@ function App() {
 
         <h2>Tasks for {selectedDay}</h2>
         <button
-          onClick={() => setShowPopup(true)}
+          onClick={() => {
+            setShowPopup(true);
+            setEditingTodoId(null);
+            setPopupData({
+              title: "",
+              description: "",
+              fromTime: "",
+              toTime: "",
+              allDay: false,
+              reminderSet: false,
+              reminderTime: "",
+            });
+          }}
           style={{
             padding: "8px 12px",
             backgroundColor: "#4f46e5",
@@ -265,6 +321,22 @@ function App() {
                     {expandedTodo === todo.id ? "Hide Details" : "View More"}
                   </button>
                   <button
+                    onClick={() => editTodo(todo)}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: "#2563eb",
+                      cursor: "pointer",
+                      fontWeight: "600",
+                      marginRight: "10px",
+                    }}
+                    title="Edit"
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "#1e40af")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "#2563eb")}
+                  >
+                    Edit
+                  </button>
+                  <button
                     style={{
                       background: "transparent",
                       border: "none",
@@ -301,6 +373,11 @@ function App() {
                       {todo.toTime}
                     </p>
                   )}
+                  {todo.reminderSet && (
+                    <p>
+                      <strong>Reminder set for:</strong> {todo.reminderTime}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -333,7 +410,7 @@ function App() {
                 animation: "slideDown 0.3s ease forwards",
               }}
             >
-              <h3>Add Todo for {selectedDay}</h3>
+              <h3>{editingTodoId ? "Edit" : "Add"} Todo for {selectedDay}</h3>
               <input
                 placeholder="Title"
                 value={popupData.title}
@@ -380,9 +457,33 @@ function App() {
                   />
                 </>
               )}
+
+              {/* Reminder Section */}
+              <label style={{ display: "block", marginBottom: "8px" }}>
+                <input
+                  type="checkbox"
+                  checked={popupData.reminderSet}
+                  onChange={(e) =>
+                    setPopupData({ ...popupData, reminderSet: e.target.checked })
+                  }
+                  disabled={popupData.allDay}
+                />{" "}
+                Set Reminder
+              </label>
+              {popupData.reminderSet && !popupData.allDay && (
+                <input
+                  type="time"
+                  value={popupData.reminderTime}
+                  onChange={(e) =>
+                    setPopupData({ ...popupData, reminderTime: e.target.value })
+                  }
+                  style={{ width: "100%", marginBottom: "8px", padding: "6px" }}
+                />
+              )}
+
               <div style={{ marginTop: "10px", textAlign: "right" }}>
                 <button
-                  onClick={createTodo}
+                  onClick={saveTodo}
                   style={{
                     padding: "8px 12px",
                     backgroundColor: "#4f46e5",
@@ -402,7 +503,19 @@ function App() {
                   Save
                 </button>
                 <button
-                  onClick={() => setShowPopup(false)}
+                  onClick={() => {
+                    setShowPopup(false);
+                    setEditingTodoId(null);
+                    setPopupData({
+                      title: "",
+                      description: "",
+                      fromTime: "",
+                      toTime: "",
+                      allDay: false,
+                      reminderSet: false,
+                      reminderTime: "",
+                    });
+                  }}
                   style={{
                     padding: "8px 12px",
                     borderRadius: "6px",
@@ -434,99 +547,143 @@ function App() {
               border: "none",
               borderRadius: "6px",
               cursor: "pointer",
+              transition: "background-color 0.3s ease",
             }}
             onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#b91c1c")}
             onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#ef4444")}
           >
-            Sign out
+            Sign Out
           </button>
         </div>
       </main>
 
       <aside
         style={{
+          width: "260px",
           position: "fixed",
-          top: 0,
           right: 0,
-          width: "280px",
+          top: 0,
           height: "100vh",
-          borderLeft: "3px solid #4f46e5",
-          backgroundColor: "#eef2ff",
+          borderLeft: "1px solid #ccc",
           padding: "20px",
-          overflowY: "auto",
           boxSizing: "border-box",
-          zIndex: 1000,
-          display: "flex",
-          flexDirection: "column",
+          overflowY: "auto",
+          backgroundColor: "#f9fafb",
         }}
       >
-        <h2 style={{ color: "#4f46e5", marginBottom: "12px" }}>Unplanned Tasks</h2>
+        <h2>Unplanned Tasks</h2>
         <button
           onClick={addUnplannedTodo}
           style={{
             padding: "8px 12px",
-            backgroundColor: "#4f46e5",
+            backgroundColor: "#10b981",
             color: "white",
             border: "none",
             borderRadius: "6px",
             cursor: "pointer",
-            marginBottom: "16px",
-            alignSelf: "flex-start",
-            transition: "background-color 0.3s ease",
+            marginBottom: "12px",
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#4338ca")}
-          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#4f46e5")}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#059669")}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#10b981")}
         >
-          + Add Unplanned Todo
+          + Add Unplanned
         </button>
-        <div style={{ flex: 1, overflowY: "auto" }}>
-          {unplannedTodos.length === 0 && (
-            <p style={{ color: "#555" }}>No unplanned tasks.</p>
-          )}
-          {unplannedTodos.map((todo) => (
+        {unplannedTodos.length === 0 && <p>No unplanned todos.</p>}
+        {unplannedTodos.map((todo) => (
+          <div
+            key={todo.id}
+            style={{
+              background: "#e0f2fe",
+              padding: "10px",
+              borderRadius: "8px",
+              marginBottom: "8px",
+              boxShadow:
+                expandedTodo === todo.id
+                  ? "0 4px 12px rgba(14, 165, 233, 0.5)"
+                  : "none",
+              transition: "box-shadow 0.3s ease",
+            }}
+          >
             <div
-              key={todo.id}
               style={{
-                background: "white",
-                padding: "10px",
-                borderRadius: "8px",
-                marginBottom: "10px",
-                boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
               }}
             >
-              <span>{todo.title}</span>
-              <button
-                onClick={() => deleteTodo(todo.id)}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "red",
-                  cursor: "pointer",
-                  fontWeight: "600",
-                }}
-                title="Delete"
-              >
-                ✕
-              </button>
+              <strong>{todo.title}</strong>
+              <div>
+                <button
+                  onClick={() =>
+                    setExpandedTodo(expandedTodo === todo.id ? null : todo.id)
+                  }
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "#0369a1",
+                    cursor: "pointer",
+                    fontWeight: "600",
+                    marginRight: "10px",
+                    transition: "color 0.3s ease",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "#0c4a6e")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "#0369a1")}
+                >
+                  {expandedTodo === todo.id ? "Hide Details" : "View More"}
+                </button>
+                <button
+                  onClick={() => editTodo(todo)}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "#0284c7",
+                    cursor: "pointer",
+                    fontWeight: "600",
+                    marginRight: "10px",
+                  }}
+                  title="Edit"
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "#0369a1")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "#0284c7")}
+                >
+                  Edit
+                </button>
+                <button
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "red",
+                    cursor: "pointer",
+                    fontWeight: "600",
+                  }}
+                  onClick={() => deleteTodo(todo.id)}
+                >
+                  Delete
+                </button>
+              </div>
             </div>
-          ))}
-        </div>
+            {expandedTodo === todo.id && (
+              <div
+                style={{
+                  marginTop: "8px",
+                  background: "#e0f7fa",
+                  padding: "8px",
+                  borderRadius: "6px",
+                }}
+              >
+                <p>
+                  <strong>Description:</strong>{" "}
+                  {todo.description || "No description"}
+                </p>
+                {todo.reminderSet && (
+                  <p>
+                    <strong>Reminder set for:</strong> {todo.reminderTime}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
       </aside>
-
-      {/* CSS Animations */}
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0 }
-          to { opacity: 1 }
-        }
-        @keyframes slideDown {
-          from { transform: translateY(-20px); opacity: 0 }
-          to { transform: translateY(0); opacity: 1 }
-        }
-      `}</style>
     </div>
   );
 }

@@ -15,6 +15,8 @@ const schema = a.schema({
       fromTime: a.string(),
       toTime: a.string(),
       allDay: a.boolean(),
+      reminderSet: a.boolean(),
+      reminderTime: a.string(),
     })
     .authorization((allow) => [allow.owner()]),
 });
