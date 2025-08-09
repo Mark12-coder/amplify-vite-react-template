@@ -33,6 +33,12 @@ function isReminderUpcoming(todo: Schema["Todo"]["type"]) {
   });
 }
 
+// Helper to get today's date string YYYY-MM-DD
+function getTodayStr() {
+  const now = new Date();
+  return formatDateLocal(now.getFullYear(), now.getMonth() + 1, now.getDate());
+}
+
 export default function App() {
   const [todos, setTodos] = useState<Array<Schema["Todo"]["type"]>>([]);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
@@ -53,27 +59,6 @@ export default function App() {
   const [expandedTodo, setExpandedTodo] = useState<string | null>(null);
 
   const { signOut } = useAuthenticator();
-
-  // New state to track which todos have alerted already
-  const [alertedIds, setAlertedIds] = useState<Set<string>>(new Set());
-
-  // New effect to trigger alert popups on upcoming reminders
-  useEffect(() => {
-    const interval = setInterval(() => {
-      todos.forEach(todo => {
-        if (
-          isReminderUpcoming(todo) &&
-          todo.id &&
-          !alertedIds.has(todo.id)
-        ) {
-          alert(`Reminder: "${todo.title}" is starting soon!`);
-          setAlertedIds(prev => new Set(prev).add(todo.id));
-        }
-      });
-    }, 60000); // every 60 seconds
-
-    return () => clearInterval(interval);
-  }, [todos, alertedIds]);
 
   useEffect(() => {
     const sub = client.models.Todo.observeQuery().subscribe({
@@ -241,10 +226,15 @@ export default function App() {
     });
   }
 
+  const todayStr = getTodayStr();
+  const isTodaySelected = selectedDay === todayStr;
+  const now = new Date();
+  const currentTimeString = now.toTimeString().slice(0, 5); // "HH:MM"
+
   return (
     <div style={{ fontFamily: "sans-serif", padding: "20px", height: "100vh", boxSizing: "border-box" }}>
       <main style={{ overflowY: "auto", marginRight: "280px" }}>
-        <h1>Events</h1>
+        <h1>📅 My Calendar Todos with Reminders</h1>
 
         {/* Year and Month Controls */}
         <div style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 8 }}>
@@ -273,22 +263,30 @@ export default function App() {
             }
             const dateStr = formatDateLocal(currentYear, currentMonth, dayIndex);
             const isSelected = selectedDay === dateStr;
+            const isPast = dateStr < todayStr;
+
             return (
               <div
                 key={dayIndex}
-                onClick={() => setSelectedDay(dateStr)}
+                onClick={() => !isPast && setSelectedDay(dateStr)}
                 style={{
                   padding: 10,
                   textAlign: "center",
                   borderRadius: 8,
-                  cursor: "pointer",
-                  background: isSelected ? "#4f46e5" : "#f3f4f6",
-                  color: isSelected ? "white" : "black",
+                  cursor: isPast ? "default" : "pointer",
+                  background: isSelected ? "#4f46e5" : isPast ? "#ccc" : "#f3f4f6",
+                  color: isSelected ? "white" : isPast ? "#888" : "black",
                   boxShadow: isSelected ? "0 0 8px rgba(79, 70, 229, 0.7)" : "none",
+                  userSelect: "none",
                   transition: "background-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease",
                 }}
-                onMouseEnter={e => !isSelected && (e.currentTarget.style.backgroundColor = "#ddd")}
-                onMouseLeave={e => !isSelected && (e.currentTarget.style.backgroundColor = "#f3f4f6")}
+                title={isPast ? "Cannot select past dates" : undefined}
+                onMouseEnter={e => {
+                  if (!isSelected && !isPast) e.currentTarget.style.backgroundColor = "#ddd";
+                }}
+                onMouseLeave={e => {
+                  if (!isSelected && !isPast) e.currentTarget.style.backgroundColor = "#f3f4f6";
+                }}
               >
                 {dayIndex}
               </div>
@@ -299,6 +297,10 @@ export default function App() {
         <h2>Tasks for {selectedDay}</h2>
         <button
           onClick={() => {
+            if (selectedDay < todayStr) {
+              alert("Cannot add todos on past dates");
+              return;
+            }
             setShowPopup(true);
             setEditingTodoId(null);
             setPopupData({
@@ -313,13 +315,14 @@ export default function App() {
           }}
           style={{
             padding: "8px 12px",
-            backgroundColor: "#4f46e5",
+            backgroundColor: selectedDay < todayStr ? "#aaa" : "#4f46e5",
             color: "white",
             border: "none",
             borderRadius: 6,
-            cursor: "pointer",
+            cursor: selectedDay < todayStr ? "not-allowed" : "pointer",
             marginBottom: 12,
           }}
+          disabled={selectedDay < todayStr}
         >
           + Add Todo
         </button>
@@ -458,10 +461,33 @@ export default function App() {
         {unplannedTodos.map(todo => (
           <div
             key={todo.id}
-            style={{ padding: 8, marginBottom: 8, backgroundColor: "#d1fae5", borderRadius: 6 }}
+            style={{
+              padding: 8,
+              marginBottom: 8,
+              backgroundColor: "#d1fae5",
+              borderRadius: 6,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
           >
-            <strong>{todo.title}</strong>
-            {todo.description && <p>{todo.description}</p>}
+            <div>
+              <strong>{todo.title}</strong>
+              {todo.description && <p>{todo.description}</p>}
+            </div>
+            <button
+              onClick={() => todo.id && deleteTodo(todo.id)}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "red",
+                cursor: "pointer",
+                fontWeight: 600,
+              }}
+              title="Delete unplanned task"
+            >
+              Delete
+            </button>
           </div>
         ))}
       </aside>
@@ -472,8 +498,11 @@ export default function App() {
           onClick={() => setShowPopup(false)}
           style={{
             position: "fixed",
-            inset: 0,
-            backgroundColor: "rgba(0,0,0,0.4)",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0,0,0,0.25)",
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
@@ -481,25 +510,25 @@ export default function App() {
           }}
         >
           <div
-            onClick={(e) => e.stopPropagation()}
+            onClick={e => e.stopPropagation()}
             style={{
               backgroundColor: "white",
-              padding: 24,
+              padding: 20,
               borderRadius: 8,
-              width: 320,
-              maxHeight: "90vh",
+              width: 340,
+              maxHeight: "80vh",
               overflowY: "auto",
               boxSizing: "border-box",
             }}
           >
-            <h2>{editingTodoId ? "Edit Todo" : popupData.isUnplanned ? "Add Unplanned Task" : "Add Todo"}</h2>
+            <h3>{editingTodoId ? "Edit Todo" : popupData.isUnplanned ? "Add Unplanned Task" : "Add Todo"}</h3>
 
             <label style={{ display: "block", marginBottom: 8 }}>
               Title:
               <input
                 type="text"
                 value={popupData.title}
-                onChange={(e) => setPopupData(p => ({ ...p, title: e.target.value }))}
+                onChange={e => setPopupData(p => ({ ...p, title: e.target.value }))}
                 style={{ width: "100%", padding: 6, marginTop: 4, boxSizing: "border-box" }}
               />
             </label>
@@ -508,9 +537,9 @@ export default function App() {
               Description:
               <textarea
                 value={popupData.description}
-                onChange={(e) => setPopupData(p => ({ ...p, description: e.target.value }))}
+                onChange={e => setPopupData(p => ({ ...p, description: e.target.value }))}
+                style={{ width: "100%", padding: 6, marginTop: 4, boxSizing: "border-box", resize: "vertical" }}
                 rows={3}
-                style={{ width: "100%", padding: 6, marginTop: 4, boxSizing: "border-box" }}
               />
             </label>
 
@@ -520,11 +549,10 @@ export default function App() {
                   <input
                     type="checkbox"
                     checked={popupData.allDay}
-                    onChange={(e) => setPopupData(p => ({ ...p, allDay: e.target.checked }))}
-                  />{" "}
-                  All Day Event
+                    onChange={e => setPopupData(p => ({ ...p, allDay: e.target.checked }))}
+                  />
+                  {" "}All Day Event
                 </label>
-
                 {!popupData.allDay && (
                   <>
                     <label style={{ display: "block", marginBottom: 8 }}>
@@ -532,32 +560,38 @@ export default function App() {
                       <input
                         type="time"
                         value={popupData.startTime}
-                        onChange={(e) => setPopupData(p => ({ ...p, startTime: e.target.value }))}
+                        min={isTodaySelected ? currentTimeString : undefined}
+                        onChange={e => setPopupData(p => ({ ...p, startTime: e.target.value }))}
                         style={{ width: "100%", padding: 6, marginTop: 4, boxSizing: "border-box" }}
                       />
                     </label>
-
                     <label style={{ display: "block", marginBottom: 8 }}>
                       End Time:
                       <input
                         type="time"
                         value={popupData.endTime}
-                        onChange={(e) => setPopupData(p => ({ ...p, endTime: e.target.value }))}
+                        min={isTodaySelected ? currentTimeString : undefined}
+                        onChange={e => setPopupData(p => ({ ...p, endTime: e.target.value }))}
                         style={{ width: "100%", padding: 6, marginTop: 4, boxSizing: "border-box" }}
                       />
                     </label>
                   </>
                 )}
-
-                <fieldset style={{ marginBottom: 12 }}>
+                <fieldset
+                  style={{
+                    border: "1px solid #ccc",
+                    padding: 10,
+                    borderRadius: 6,
+                    marginBottom: 8,
+                  }}
+                >
                   <legend>Reminders</legend>
                   {reminderOptions.map(({ label, value }) => (
-                    <label key={value} style={{ display: "block" }}>
+                    <label key={value} style={{ display: "block", marginBottom: 4 }}>
                       <input
                         type="checkbox"
                         checked={popupData.reminderTimes.includes(value)}
                         onChange={() => toggleReminder(value)}
-                        disabled={popupData.allDay && value !== "-1440"}
                       />{" "}
                       {label}
                     </label>
@@ -566,8 +600,10 @@ export default function App() {
               </>
             )}
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-              <button onClick={() => setShowPopup(false)}>Cancel</button>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12 }}>
+              <button onClick={() => setShowPopup(false)} style={{ backgroundColor: "#ccc", border: "none", padding: "6px 12px", borderRadius: 6 }}>
+                Cancel
+              </button>
               <button
                 onClick={saveTodo}
                 style={{ backgroundColor: "#4f46e5", color: "white", border: "none", padding: "6px 12px", borderRadius: 6 }}
