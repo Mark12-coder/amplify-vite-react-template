@@ -54,6 +54,27 @@ export default function App() {
 
   const { signOut } = useAuthenticator();
 
+  // New state to track which todos have alerted already
+  const [alertedIds, setAlertedIds] = useState<Set<string>>(new Set());
+
+  // New effect to trigger alert popups on upcoming reminders
+  useEffect(() => {
+    const interval = setInterval(() => {
+      todos.forEach(todo => {
+        if (
+          isReminderUpcoming(todo) &&
+          todo.id &&
+          !alertedIds.has(todo.id)
+        ) {
+          alert(`Reminder: "${todo.title}" is starting soon!`);
+          setAlertedIds(prev => new Set(prev).add(todo.id));
+        }
+      });
+    }, 60000); // every 60 seconds
+
+    return () => clearInterval(interval);
+  }, [todos, alertedIds]);
+
   useEffect(() => {
     const sub = client.models.Todo.observeQuery().subscribe({
       next: (data) => {
@@ -223,7 +244,7 @@ export default function App() {
   return (
     <div style={{ fontFamily: "sans-serif", padding: "20px", height: "100vh", boxSizing: "border-box" }}>
       <main style={{ overflowY: "auto", marginRight: "280px" }}>
-        <h1>📅 My Calendar Todos with Reminders</h1>
+        <h1>Events</h1>
 
         {/* Year and Month Controls */}
         <div style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 8 }}>
