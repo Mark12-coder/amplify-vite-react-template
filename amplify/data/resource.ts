@@ -12,7 +12,7 @@ const schema = a.schema({
       priority: a.string(),    // Low, Medium, High
       category: a.string(), // Work, Personal, etc.
       recurring: a.string(),   // None, Daily, Weekly...
-      reminderOffsets: a.string().array(), // ["10", "30", "60"] = minutes before start
+      reminderTimes: a.string().array(), // ["10", "30", "60"] = minutes before start
       completed: a.boolean().default(false),
       unplanned: a.boolean().default(false),
     })
