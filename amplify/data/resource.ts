@@ -10,7 +10,6 @@ const schema = a.schema({
       endTime: a.string()    , // e.g., 15:30
       allDay: a.boolean().default(false),   // All-day event
       priority: a.string(),    // Low, Medium, High
-      category: a.string(), // Work, Personal, etc.
       recurring: a.string(),   // None, Daily, Weekly...
       reminderTimes: a.string().array(), // ["10", "30", "60"] = minutes before start
       completed: a.boolean().default(false),
