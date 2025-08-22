@@ -3,15 +3,15 @@ import { a, defineData, type ClientSchema } from "@aws-amplify/backend";
 const schema = a.schema({
   Todo: a
     .model({
-      title: a.string().required(),                   // Task title
-      description: a.string().required(),              // Task details
-      date: a.string(),                     // yyyy-mm-dd
-      startTime: a.string(), // e.g., 14:30
-      endTime: a.string()    , // e.g., 15:30
-      allDay: a.boolean().default(false),   // All-day event
-      priority: a.string(),    // Low, Medium, High
-      recurring: a.string(),   // None, Daily, Weekly...
-      reminderTimes: a.string().array(), // ["10", "30", "60"] = minutes before start
+      title: a.string().required(),                  
+      description: a.string().required(),              
+      date: a.string(),
+      startTime: a.string(),
+      endTime: a.string(),
+      allDay: a.boolean().default(false),   
+      priority: a.string(),   
+      recurring: a.string(),   
+      reminderTimes: a.string().array(), 
       completed: a.boolean().default(false),
       unplanned: a.boolean().default(false),
     })
