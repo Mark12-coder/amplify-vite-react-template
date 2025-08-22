@@ -177,7 +177,7 @@ export default function App() {
   const now = new Date();
   const currentTimeString = now.toTimeString().slice(0, 5);
 
-  const priorityColors: Record<string,string> = { High:"#f87171", Medium:"#fbbf24", Low:"#34d399" };
+  const priorityColors: Record<string,string> = { High:"#cf3333ff", Medium:"#24b7fbff", Low:"#34d399" };
 
   return (
     <div style={{ fontFamily:"sans-serif", padding:20, height:"100vh", boxSizing:"border-box" }}>

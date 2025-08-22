@@ -9,7 +9,7 @@ const schema = a.schema({
       startTime: a.string(),
       endTime: a.string(),
       allDay: a.boolean().default(false),   
-      priority: a.string(),   
+      priority: a.enum(["High", "Medium", "Low"]),
       recurring: a.string(),   
       reminderTimes: a.string().array(), 
       completed: a.boolean().default(false),
